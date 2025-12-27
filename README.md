@@ -51,6 +51,8 @@ Get a single consolidated text file ready for your favorite AI assistant.
 
 ### Option 2: GitHub Integration
 
+![GitHub Integration Demo](public/images/github-demo.webp)
+
 #### 1. Click "Download from GitHub"
 Find the button below the upload area.
 
