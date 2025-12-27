@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Terminal } from 'lucide-react';
+import { Terminal, Github } from 'lucide-react';
 
 export function Navbar() {
     return (
@@ -9,12 +9,16 @@ export function Navbar() {
                 <Link href="/" className="flex items-center gap-2 text-xl font-bold text-white transition hover:text-indigo-400">
                     <Terminal className="h-6 w-6 text-indigo-500" />
                     <span>CodeContext</span>
+                    <span className="ml-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-xs font-medium text-indigo-300">
+                        Open Source
+                    </span>
                 </Link>
 
                 {/* Navigation - Hidden on mobile, visible on md+ */}
                 <div className="hidden items-center gap-8 text-sm font-medium text-slate-400 md:flex">
-                    <Link href="#" className="text-white hover:text-indigo-400 transition-colors">
-                        Convert
+                    <Link href="https://github.com/EnesDemir143/code-to-text" target="_blank" className="flex items-center gap-1.5 text-slate-400 hover:text-indigo-400 transition-colors">
+                        <Github className="h-4 w-4" />
+                        GitHub
                     </Link>
                     <Link href="#" className="hover:text-indigo-400 transition-colors">
                         API
