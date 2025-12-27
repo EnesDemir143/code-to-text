@@ -26,7 +26,7 @@ export function Navbar() {
                     <Link href="#" className="hover:text-indigo-400 transition-colors">
                         Pricing
                     </Link>
-                    <Link href="#" className="hover:text-indigo-400 transition-colors">
+                    <Link href="/help" className="hover:text-indigo-400 transition-colors">
                         Help
                     </Link>
                 </div>
