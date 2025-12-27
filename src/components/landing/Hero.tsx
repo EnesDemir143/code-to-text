@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, DragEvent, ChangeEvent } from 'react';
+import { useState, useRef, DragEvent, ChangeEvent, useEffect } from 'react';
 import { Upload, CheckCircle, Loader2, Github, Lock } from 'lucide-react';
 import { processFiles, FileGroup, generateOutput, FileEntry } from '@/lib/file-engine';
 import {
@@ -63,6 +63,13 @@ export function Hero() {
 
     // GitHub Auth
     const { isAuthenticated, token, isLoading: authLoading } = useGitHubAuth();
+
+    // Reset view mode when auth state changes
+    useEffect(() => {
+        if (!isAuthenticated && viewMode === 'github-picker') {
+            setViewMode('upload');
+        }
+    }, [isAuthenticated, viewMode]);
 
     const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();
