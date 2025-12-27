@@ -230,15 +230,6 @@ export function Hero() {
                                 : 'Click to select a Folder, or drag a ZIP file.')}
                             {(step === 'uploading' || step === 'converting') && 'Please wait...'}
                         </p>
-
-                        {step === 'idle' && (
-                            <button
-                                onClick={triggerFileInput}
-                                className="mt-4 text-sm text-indigo-400 hover:text-indigo-300 underline underline-offset-4"
-                            >
-                                Select as ZIP file instead
-                            </button>
-                        )}
                     </>
                 )}
 

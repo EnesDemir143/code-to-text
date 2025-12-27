@@ -187,7 +187,13 @@ export const processFiles = async (
     // 'ignore' expects relative paths without leading slash usually
     // Ensure path doesn't start with /
     const checkPath = path.startsWith('/') ? path.substring(1) : path;
-    return !ig.ignores(checkPath);
+
+    // Debug log for ignoring
+    if (ig.ignores(checkPath)) {
+      // console.log(`Ignored: ${checkPath}`);
+      return false;
+    }
+    return true;
   });
 
   const groups: Record<string, FileEntry[]> = {};
@@ -198,12 +204,17 @@ export const processFiles = async (
   for (let i = 0; i < validFiles.length; i += CHUNK_SIZE) {
     const chunk = validFiles.slice(i, i + CHUNK_SIZE);
     await Promise.all(chunk.map(async (file) => {
-      const path = (file as any).path || file.webkitRelativePath || file.name;
+      let path = (file as any).path || file.webkitRelativePath || file.name;
+      // Ensure path has no leading slash for consistency
+      if (path.startsWith('/')) path = path.substring(1);
 
       if (isBinary(path)) return; // Double check binary logic
 
       try {
         const content = await readFileContent(file);
+        // Skip empty content? No, empty files might be relevant. 
+        // But if read failed, it's empty string.
+
         const language = getLanguageFromFilename(path);
 
         const entry: FileEntry = {
@@ -252,8 +263,11 @@ const unzipFile = async (file: File): Promise<File[]> => {
 
     // Create a File object. 
     // We attach the 'path' property manually since 'webkitRelativePath' is read-only often.
-    const extractedFile = new File([blob], relativePath.split('/').pop() || relativePath, { type: blob.type });
-    Object.defineProperty(extractedFile, 'path', { value: relativePath });
+    // Ensure relativePath doesn't start with /
+    const cleanPath = relativePath.startsWith('/') ? relativePath.substring(1) : relativePath;
+
+    const extractedFile = new File([blob], cleanPath.split('/').pop() || cleanPath, { type: blob.type });
+    Object.defineProperty(extractedFile, 'path', { value: cleanPath });
 
     files.push(extractedFile);
   }
@@ -263,7 +277,7 @@ const unzipFile = async (file: File): Promise<File[]> => {
 
 const isBinary = (path: string): boolean => {
   const ext = path.split('.').pop()?.toLowerCase();
-  const binaryExts = new Set(['png', 'jpg', 'jpeg', 'gif', 'ico', 'webp', 'pdf', 'zip', 'exe', 'dll', 'so', 'dylib', 'bin', 'lock', 'eot', 'ttf', 'woff', 'woff2', 'mp3', 'mp4']);
+  const binaryExts = new Set(['png', 'jpg', 'jpeg', 'gif', 'ico', 'webp', 'pdf', 'zip', 'exe', 'dll', 'so', 'dylib', 'bin', 'lock', 'eot', 'ttf', 'woff', 'woff2', 'mp3', 'mp4', 'pyc', 'class']);
   return ext ? binaryExts.has(ext) : false;
 };
 
@@ -279,10 +293,11 @@ const readFileContent = (file: File): Promise<string> => {
 };
 
 export const generateOutput = (selectedFiles: FileEntry[]): string => {
+  if (selectedFiles.length === 0) return "No files were processed.";
   return selectedFiles
     .map(
       (file) =>
-        `<file_start path="${file.path}">\n${file.content}\n<file_end>`
+        `================================================================\nFile: ${file.path}\n================================================================\n${file.content}\n`
     )
     .join('\n\n');
 };
