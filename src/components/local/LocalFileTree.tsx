@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronDown, Folder, FileCode, File, Check, Minus, Download, X, CheckSquare, Square } from 'lucide-react';
 import { FileEntry, FileGroup } from '@/lib/file-engine';
 
@@ -356,16 +356,22 @@ export function LocalFileTree({
     onDownload,
     onCancel,
 }: LocalFileTreeProps) {
-    const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => {
-        // Start with root level folders expanded
-        const initial = new Set<string>();
-        for (const node of tree) {
-            if (node.type === 'folder') {
-                initial.add(node.path);
+    const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+    const hasInitialized = useRef(false);
+
+    // Expand root level folders only on initial mount when tree is first available
+    useEffect(() => {
+        if (tree.length > 0 && !hasInitialized.current) {
+            hasInitialized.current = true;
+            const initial = new Set<string>();
+            for (const node of tree) {
+                if (node.type === 'folder') {
+                    initial.add(node.path);
+                }
             }
+            setExpandedPaths(initial);
         }
-        return initial;
-    });
+    }, [tree]);
 
     const selectedFiles = useMemo(() => getSelectedLocalFiles(tree), [tree]);
 
