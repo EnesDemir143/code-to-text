@@ -1,5 +1,6 @@
-
 import JSZip from 'jszip';
+import ignore from 'ignore';
+import { DEFAULT_IGNORES } from '@/lib/constants/default-ignores';
 
 export interface FileEntry {
   path: string;
@@ -14,29 +15,6 @@ export type FileGroup = {
   files: FileEntry[];
   count: number;
 };
-
-const IGNORED_DIRS = new Set([
-  'node_modules',
-  '.git',
-  '.next',
-  'venv',
-  '__pycache__',
-  'dist',
-  'build',
-  'out',
-  '.idea',
-  '.vscode',
-  'coverage',
-]);
-
-const IGNORED_FILES = new Set([
-  '.env',
-  '.DS_Store',
-  'bun.lockb',
-  'package-lock.json',
-  'yarn.lock',
-  'pnpm-lock.yaml',
-]);
 
 const EXTENSION_MAP: Record<string, string> = {
   // JavaScript / TypeScript
@@ -55,6 +33,7 @@ const EXTENSION_MAP: Record<string, string> = {
   less: 'LESS',
   json: 'JSON',
   svg: 'SVG',
+  xml: 'XML',
 
   // Backend / Systems
   py: 'Python',
@@ -96,73 +75,154 @@ export const getLanguageFromFilename = (filename: string): string => {
   return EXTENSION_MAP[ext] || 'Other';
 };
 
-export const shouldIgnore = (path: string): boolean => {
-  const parts = path.split('/');
-
-  // Check directories
-  for (const part of parts) {
-    if (IGNORED_DIRS.has(part)) return true;
-  }
-
-  // Check filename (last part)
-  const filename = parts[parts.length - 1];
-  if (IGNORED_FILES.has(filename)) return true;
-
-  // Ignore dotfiles generally (except specific allowed ones if any, but default ignore)
-  // if (filename.startsWith('.') && filename !== '.gitignore') return true; 
-  // User specifically mentioned .env, keeping it simple with the set for now.
-
-  return false;
-};
-
+/**
+ * 2-Pass Processing:
+ * Pass 1: Unzip recursive zips and collect all raw files. Find all .gitignore files.
+ * Pass 2: Build ignore rules and filter files.
+ * Pass 3: Read content of accepted files.
+ */
 export const processFiles = async (
   input: FileList | File[]
 ): Promise<FileGroup[]> => {
-  const groups: Record<string, FileEntry[]> = {};
-  const files: File[] = Array.isArray(input) ? input : Array.from(input);
-  const queue = [...files];
+  // Phase 1: Flatten everything (handle Zips)
+  const rawFiles: File[] = [];
+  const queue = Array.isArray(input) ? [...input] : Array.from(input);
+
+  // We need to handle async unzipping carefully to not block UI too much, 
+  // but for now we do it sequentially or in chunks.
+
+  const processedPaths = new Set<string>();
 
   while (queue.length > 0) {
     const file = queue.shift();
     if (!file) continue;
 
-    const path = file.webkitRelativePath || file.name;
+    // Normalize path
+    // webkitRelativePath is available for directory drops. 
+    // For individual files, it's empty, so we use name. 
+    // For unzipped files, we manually set it in our unzip helper but here we access it carefully.
+    const path = (file as any).path || file.webkitRelativePath || file.name;
 
-    if (shouldIgnore(path)) continue;
+    // Safety check for duplicates if multiple zips contain same structure or something
+    if (processedPaths.has(path)) continue;
+    processedPaths.add(path);
 
-    // Check if zip
     if (file.name.toLowerCase().endsWith('.zip')) {
       try {
-        const unzippedFiles = await unzipFile(file);
-        queue.push(...unzippedFiles);
+        const unzipped = await unzipFile(file);
+        // Prefix unzipped files if needed? 
+        // Actually unzipFile preserves internal structure. 
+        // If zip is at root, internal paths are relative to root.
+        queue.push(...unzipped);
       } catch (e) {
-        console.warn(`Failed to unzip ${file.name}`, e);
+        console.warn(`Failed to unzip ${path}`, e);
       }
       continue;
     }
 
-    // Skip binary files (simple heuristic: check extension or try to read)
-    if (isBinary(path)) continue;
-
-    try {
-      const content = await readFileContent(file);
-      const language = getLanguageFromFilename(path);
-
-      const entry: FileEntry = {
-        path,
-        name: file.name,
-        language,
-        content,
-        size: file.size,
-      };
-
-      if (!groups[language]) {
-        groups[language] = [];
-      }
-      groups[language].push(entry);
-    } catch (e) {
-      console.warn(`Failed to read file ${path}`, e);
+    // Determine if we need to keep this file object for the next phase
+    // We attach the 'path' to the file object for easier access later if it's missing
+    if (!file.webkitRelativePath && !(file as any).path) {
+      Object.defineProperty(file, 'path', { value: path });
     }
+
+    rawFiles.push(file);
+  }
+
+  // Phase 2: Build Ignore Manager
+  const ig = ignore().add(DEFAULT_IGNORES);
+
+  // Find project-specific .ignore files
+  // We look for .gitignore files in the rawFiles list
+  const gitIgnoreFiles = rawFiles.filter(f => f.name === '.gitignore');
+
+  // Applying nested gitignores is complex without a full tree traversal logic.
+  // For this MVP, we will treat all .gitignore rules as GLOBAL or 
+  // try to scope them if possible. 
+  // 'ignore' package by default works partially strictly.
+  // Ideally: parse .gitignore, prepending the folder path to the rules.
+  // e.g. src/.gitignore having "foo" -> add "src/foo" to global ignore.
+
+  for (const ignoreFile of gitIgnoreFiles) {
+    try {
+      const content = await readFileContent(ignoreFile);
+      const ignorePath = (ignoreFile as any).path || ignoreFile.webkitRelativePath || '';
+      const folderPrefix = ignorePath.substring(0, ignorePath.lastIndexOf('.gitignore')); // e.g. "src/" or ""
+
+      const lines = content.split('\n');
+      const scopedRules = lines.map(line => {
+        line = line.trim();
+        if (!line || line.startsWith('#')) return null;
+        // If rule starts with /, it's relative to that .gitignore root.
+        // We need to prepend folderPrefix.
+        // 'ignore' package doesn't natively support "multiple roots" easily in one instance.
+        // We construct a global rule set by prepending paths.
+
+        // Logic:
+        // pattern "node_modules" in "client/.gitignore" -> "client/node_modules"
+        // and "client/**/node_modules" (depending on git behavior, usually relative to that dir)
+
+        // Simplification for MVP: Add the rule as is? No, that would ignore sibling folders.
+        // We PREPEND the prefix.
+
+        if (line.startsWith('/')) {
+          return folderPrefix + line.substring(1);
+        }
+        return folderPrefix + '**/' + line;
+        // This is a rough heuristic. Gitignore logic is complex. 
+        // A safe bet for "folder/.gitignore" having "dist" is that it ignores "folder/dist".
+        // Use strict prefixing.
+      }).filter(Boolean) as string[];
+
+      ig.add(scopedRules);
+
+    } catch (e) {
+      console.warn('Failed to parse .gitignore', e);
+    }
+  }
+
+  // Phase 3: Filter and Read
+  const validFiles = rawFiles.filter(file => {
+    const path = (file as any).path || file.webkitRelativePath || file.name;
+    // 'ignore' expects relative paths without leading slash usually
+    // Ensure path doesn't start with /
+    const checkPath = path.startsWith('/') ? path.substring(1) : path;
+    return !ig.ignores(checkPath);
+  });
+
+  const groups: Record<string, FileEntry[]> = {};
+
+  // Read content (Limit concurrency to avoid browser freeze)
+  // For very large projects, we might want to chunk this.
+  const CHUNK_SIZE = 50;
+  for (let i = 0; i < validFiles.length; i += CHUNK_SIZE) {
+    const chunk = validFiles.slice(i, i + CHUNK_SIZE);
+    await Promise.all(chunk.map(async (file) => {
+      const path = (file as any).path || file.webkitRelativePath || file.name;
+
+      if (isBinary(path)) return; // Double check binary logic
+
+      try {
+        const content = await readFileContent(file);
+        const language = getLanguageFromFilename(path);
+
+        const entry: FileEntry = {
+          path,
+          name: file.name,
+          language,
+          content,
+          size: file.size,
+        };
+
+        if (!groups[language]) {
+          groups[language] = [];
+        }
+        groups[language].push(entry);
+
+      } catch (e) {
+        console.warn(`Failed to read ${path}`, e);
+      }
+    }));
   }
 
   // Sort groups by file count desc
@@ -175,6 +235,8 @@ export const processFiles = async (
     .sort((a, b) => b.count - a.count);
 };
 
+
+// Helper to unzip
 const unzipFile = async (file: File): Promise<File[]> => {
   const zip = new JSZip();
   const loadedZip = await zip.loadAsync(file);
@@ -183,19 +245,15 @@ const unzipFile = async (file: File): Promise<File[]> => {
   for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
     if (zipEntry.dir) continue;
 
-    if (shouldIgnore(relativePath)) continue;
+    // Preliminary check against default ignores to save time? 
+    // No, we do it in Phase 2 globally.
 
     const blob = await zipEntry.async('blob');
-    // Create a File object from the blob, preserving the relative path in the name or property
-    // Note: browser File constructor doesn't natively support webkitRelativePath for manually created files easily,
-    // but we can store it in the 'name' or handle it in our logic.
-    // We will use relativePath as the name to preserve structure.
-    const extractedFile = new File([blob], relativePath, { type: blob.type });
 
-    // Mock webkitRelativePath behavior by using defineProperty (optional, but helpful if we rely on it downstream)
-    Object.defineProperty(extractedFile, 'webkitRelativePath', {
-      value: relativePath,
-    });
+    // Create a File object. 
+    // We attach the 'path' property manually since 'webkitRelativePath' is read-only often.
+    const extractedFile = new File([blob], relativePath.split('/').pop() || relativePath, { type: blob.type });
+    Object.defineProperty(extractedFile, 'path', { value: relativePath });
 
     files.push(extractedFile);
   }
@@ -205,7 +263,7 @@ const unzipFile = async (file: File): Promise<File[]> => {
 
 const isBinary = (path: string): boolean => {
   const ext = path.split('.').pop()?.toLowerCase();
-  const binaryExts = new Set(['png', 'jpg', 'jpeg', 'gif', 'ico', 'webp', 'pdf', 'zip', 'exe', 'dll', 'so', 'dylib', 'bin', 'lock']);
+  const binaryExts = new Set(['png', 'jpg', 'jpeg', 'gif', 'ico', 'webp', 'pdf', 'zip', 'exe', 'dll', 'so', 'dylib', 'bin', 'lock', 'eot', 'ttf', 'woff', 'woff2', 'mp3', 'mp4']);
   return ext ? binaryExts.has(ext) : false;
 };
 
