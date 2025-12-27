@@ -21,9 +21,11 @@ CodeContext is a powerful, secure, and lightning-fast tool designed to help deve
 - **Bulk Actions:** Select All / Deselect All, Expand All / Collapse All
 - **Real-time Preview:** See exactly which files will be included before download
 
-### 🔗 GitHub Integration (v1.1.0)
+### 🔗 GitHub Integration (v1.3.0)
 
-- **Download from GitHub:** Import public repositories directly via URL
+- **Authentication:** Login with GitHub to access your private repositories
+- **Repository Browser:** Visual interface to browse and filter your repositories and organizations
+- **Private & Public:** Support for both public URLs and private repository access
 - **Visual File Tree:** Browse repository structure in an interactive tree view
 - **Progress Tracking:** Real-time download progress indicator
 
@@ -52,11 +54,13 @@ Click the download button to get your `.txt` file with all selected code.
 
 ![GitHub Tree View](public/images/github-tree-view.png)
 
-#### 1. Click "Download from GitHub"
-Find the button below the upload area.
+#### 1. Connect GitHub
+Click the "Sign in with GitHub" button to access your repositories (including private ones) and increased API limits.
 
-#### 2. Enter Repository URL
-Paste a public GitHub repository URL (e.g., `https://github.com/user/repo`).
+#### 2. Select Repository
+- **Browse:** View a list of your repositories and organizations.
+- **Search:** Quickly find the repo you need.
+- **URL:** Alternatively, paste a public repository URL directly.
 
 #### 3. Browse & Select Files
 Explore the repository's file structure in a tree view. Click folders to expand, use checkboxes to select files.
@@ -105,7 +109,11 @@ Click the download button to get your `.txt` file with all selected code.
 
 ## 📋 API Limits
 
-> **Note:** GitHub integration uses the public GitHub API which has a rate limit of 60 requests per hour for unauthenticated users. For larger repositories or frequent use, consider using the local folder upload option.
+> **Note:** GitHub integration uses the GitHub API. 
+> - **Unauthenticated:** 60 requests per hour (Public repos only).
+> - **Authenticated:** 5,000 requests per hour (Public & Private repos).
+> 
+> Logging in is recommended for larger repositories or frequent use.
 
 ## 🤝 Contributing
 

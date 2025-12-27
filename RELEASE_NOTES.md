@@ -1,3 +1,29 @@
+# 🚀 v1.3.0 - GitHub Authentication & Private Repos
+
+Bu sürümde, GitHub entegrasyonu tamamen yenilendi! Artık kullanıcılar giriş yaparak private repolarına erişebilir, organizasyonlarını yönetebilir ve repo arama özelliğini kullanabilir.
+
+#### ✨ Yeni Özellikler
+
+- **GitHub ile Giriş:** OAuth entegrasyonu sayesinde güvenli giriş yapabilme
+- **Private Repo Erişimi:** Yetkiniz olan tüm private repoları görüntüleme ve indirme
+- **Repository Tarayıcı:**
+  - Repolarınızı listeleyebilme
+  - Organizasyonlarınız (Organizations) arasında geçiş yapabilme
+  - Repo ismine göre arama yapabilme
+- **Artırılmış Limitler:** Giriş yapan kullanıcılar için API limitleri artırıldı (5000 request/saat)
+- **Gelişmiş UI:** Repo seçimi için yeni modern arayüz
+
+#### 🔧 Teknik İyileştirmeler
+
+- NextAuth.js ile güvenli oturum yönetimi
+- GitHub API v3 entegrasyonu genişletildi
+- Repository listeleme ve arama performans optimizasyonları
+
+#### 🔗 Live Demo
+https://context.enesdemir.me
+
+---
+
 # 🚀 v1.2.0 - Interactive File Tree for Local Uploads
 
 Bu sürümde, yerel dosya/klasör yüklemelerinde de GitHub'daki gibi interaktif dosya ağacı görüntüleme özelliği eklendi.
