@@ -12,15 +12,19 @@ CodeContext is a powerful, secure, and lightning-fast tool designed to help deve
 - **Smart Filtering:** Automatically ignores `node_modules`, `.git`, `.env`, and binary files.
 - **Language Detection:** Groups files by extension (e.g., Python, TypeScript).
 - **Dark Mode UI:** Designed with a clean, developer-focused interface.
-- **Instant Preview:** View the generated text before downloading or copying.
 - **Optimized for LLMs:** Formats the output with clear delimiters, making it easy for AI to understand your project structure.
 
-### 🆕 GitHub Integration (v1.1.0)
+### 🆕 Interactive File Tree (v1.2.0)
+
+- **Visual File Selection:** Both local uploads and GitHub imports now show an interactive file tree
+- **Smart Selection:** Select parent folders to include all children, or pick individual files
+- **Bulk Actions:** Select All / Deselect All, Expand All / Collapse All
+- **Real-time Preview:** See exactly which files will be included before download
+
+### 🔗 GitHub Integration (v1.1.0)
 
 - **Download from GitHub:** Import public repositories directly via URL
 - **Visual File Tree:** Browse repository structure in an interactive tree view
-- **Smart Selection:** Select parent folders to include all children, or pick individual files
-- **Bulk Actions:** Select All / Deselect All, Expand All / Collapse All
 - **Progress Tracking:** Real-time download progress indicator
 
 ## 🛠️ How It Works
@@ -32,26 +36,21 @@ Select your project folder or drag and drop it into the upload area.
 
 ![Upload Step](public/images/step-upload-box.png)
 
-#### 2. Configure & Filter
-Select specific files or folders you want to include. The tool automatically handles ignores for you.
+#### 2. Browse & Select Files
+After processing, an interactive file tree appears. Select specific files or folders you want to include.
 
-![Selection Step](public/images/step-1.png)
+- ✅ Select a folder to include all its contents
+- ✅ Use "Select All" / "Deselect All" for bulk operations  
+- ✅ Expand/Collapse folders for easier navigation
 
-#### 3. Processing
-Watch as your files are securely processed right in your browser.
-
-![Processing Step](public/images/step-2.png)
-
-#### 4. Generate & Export
-Get a single consolidated text file ready for your favorite AI assistant.
-
-![Result Step](public/images/step-result.png)
+#### 3. Download
+Click the download button to get your `.txt` file with all selected code.
 
 ---
 
 ### Option 2: GitHub Integration
 
-![GitHub Integration Demo](public/images/github-demo.webp)
+![GitHub Tree View](public/images/github-tree-view.png)
 
 #### 1. Click "Download from GitHub"
 Find the button below the upload area.
