@@ -1,8 +1,40 @@
 'use client';
 
 import { useState, useRef, DragEvent, ChangeEvent } from 'react';
-import { Upload, FileCode, CheckCircle, Loader2 } from 'lucide-react';
-import { processFiles, FileGroup, generateOutput } from '@/lib/file-engine';
+import { Upload, CheckCircle, Loader2, Github } from 'lucide-react';
+import { processFiles, FileGroup, generateOutput, FileEntry } from '@/lib/file-engine';
+import {
+    GitHubTreeItem,
+    fetchRepoTree,
+    fetchMultipleFiles,
+} from '@/lib/github-api';
+import { GitHubRepoInput } from '@/components/github/GitHubRepoInput';
+import { RepoFileTree } from '@/components/github/RepoFileTree';
+
+// Re-export getLanguageFromFilename from file-engine for GitHub files
+const getLanguage = (path: string): string => {
+    const parts = path.split('.');
+    if (parts.length === 1) {
+        const filename = path.split('/').pop()?.toLowerCase() || '';
+        if (filename === 'dockerfile') return 'Dockerfile';
+        if (filename === 'makefile') return 'Makefile';
+        return 'Unknown';
+    }
+    const ext = parts.pop()?.toLowerCase() || '';
+    const EXTENSION_MAP: Record<string, string> = {
+        ts: 'TypeScript', tsx: 'TypeScript', js: 'JavaScript', jsx: 'JavaScript',
+        mjs: 'JavaScript', cjs: 'JavaScript', html: 'HTML', css: 'CSS',
+        scss: 'SCSS', sass: 'SASS', less: 'LESS', json: 'JSON', svg: 'SVG',
+        xml: 'XML', py: 'Python', rb: 'Ruby', java: 'Java', c: 'C', cpp: 'C++',
+        h: 'C/C++', hpp: 'C++', rs: 'Rust', go: 'Go', php: 'PHP', cs: 'C#',
+        swift: 'Swift', kt: 'Kotlin', yml: 'YAML', yaml: 'YAML', toml: 'TOML',
+        md: 'Markdown', sql: 'SQL', sh: 'Shell', bash: 'Shell', dockerfile: 'Dockerfile',
+        txt: 'Text',
+    };
+    return EXTENSION_MAP[ext] || 'Other';
+};
+
+type ViewMode = 'upload' | 'github-input' | 'github-tree';
 
 export function Hero() {
     const [isDragOver, setIsDragOver] = useState(false);
@@ -11,6 +43,15 @@ export function Hero() {
     const [progress, setProgress] = useState(0);
     const folderInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // GitHub state
+    const [viewMode, setViewMode] = useState<ViewMode>('upload');
+    const [githubLoading, setGithubLoading] = useState(false);
+    const [githubError, setGithubError] = useState<string | null>(null);
+    const [repoTree, setRepoTree] = useState<GitHubTreeItem[]>([]);
+    const [repoInfo, setRepoInfo] = useState<{ owner: string; repo: string; branch: string } | null>(null);
+    const [downloadProgress, setDownloadProgress] = useState<{ current: number; total: number } | null>(null);
+    const [isDownloading, setIsDownloading] = useState(false);
 
     const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -26,17 +67,6 @@ export function Hero() {
         e.preventDefault();
         setIsDragOver(false);
 
-        // Note: DataTransfer items API is better for directories, but for simple drop we rely on file list
-        // However, standardized directory drop is tricky. 
-        // Usually only input[webkitdirectory] guarantees directory traversal reliably in browsers.
-        // We will try to rely on the input trigger mainly, but handle dropped files if possible.
-        // For specific folder drops, typically we need 'webkitGetAsEntry'. 
-        // To keep it simple and robust for the MVP as per request "specific input... logic", 
-        // we prioritize the click-to-open behavior, but basic file drop works (flat list).
-
-        // Actually, asking user to click is safer for folders.
-        // If they drop a folder, the browser might just give one file object with 0 bytes or fail.
-        // We'll process what we get.
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             await processFileList(e.dataTransfer.files);
         }
@@ -55,7 +85,6 @@ export function Hero() {
         try {
             const files = Array.from(list);
 
-            // Simulate upload progress (since it's instant client-side)
             const interval = setInterval(() => {
                 setProgress(prev => {
                     if (prev >= 90) {
@@ -66,18 +95,15 @@ export function Hero() {
                 });
             }, 100);
 
-            // Actual processing
             const groups = await processFiles(files);
 
             clearInterval(interval);
             setProgress(100);
 
-            // Switch to converting phase visually
             setTimeout(() => {
                 setStep('converting');
                 setProgress(0);
 
-                // Simulate conversion time relative to file count
                 let convProgress = 0;
                 const convInterval = setInterval(() => {
                     convProgress += 5;
@@ -87,10 +113,8 @@ export function Hero() {
                         setProcessedGroups(groups);
                         setStep('complete');
                     }
-                }, 50); // Fast simulation
+                }, 50);
             }, 500);
-
-            console.log("Processed Groups:", groups);
 
         } catch (error) {
             console.error("Processing failed:", error);
@@ -112,15 +136,94 @@ export function Hero() {
     };
 
     const triggerFolderInput = () => {
-        folderInputRef.current?.click();
-    };
-
-    const triggerFileInput = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        fileInputRef.current?.click();
+        if (viewMode === 'upload' && step === 'idle') {
+            folderInputRef.current?.click();
+        }
     };
 
     const totalFiles = processedGroups?.reduce((acc, g) => acc + g.count, 0) || 0;
+
+    // GitHub handlers
+    const handleGitHubClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setViewMode('github-input');
+        setGithubError(null);
+    };
+
+    const handleGitHubSubmit = async (owner: string, repo: string, branch?: string) => {
+        setGithubLoading(true);
+        setGithubError(null);
+
+        try {
+            const tree = await fetchRepoTree(owner, repo, branch || 'main');
+            setRepoTree(tree);
+            setRepoInfo({ owner, repo, branch: branch || 'main' });
+            setViewMode('github-tree');
+        } catch (error) {
+            setGithubError((error as Error).message || 'Failed to fetch repository');
+        } finally {
+            setGithubLoading(false);
+        }
+    };
+
+    const handleGitHubCancel = () => {
+        setViewMode('upload');
+        setGithubError(null);
+        setRepoTree([]);
+        setRepoInfo(null);
+    };
+
+    const handleTreeChange = (newTree: GitHubTreeItem[]) => {
+        setRepoTree(newTree);
+    };
+
+    const handleGitHubDownload = async (selectedPaths: string[]) => {
+        if (!repoInfo || selectedPaths.length === 0) return;
+
+        setIsDownloading(true);
+        setDownloadProgress({ current: 0, total: selectedPaths.length });
+
+        try {
+            const results = await fetchMultipleFiles(
+                repoInfo.owner,
+                repoInfo.repo,
+                selectedPaths,
+                repoInfo.branch,
+                (current, total) => setDownloadProgress({ current, total })
+            );
+
+            // Convert to FileEntry format
+            const fileEntries: FileEntry[] = results
+                .filter(r => !r.error && r.content)
+                .map(r => ({
+                    path: r.path,
+                    name: r.path.split('/').pop() || r.path,
+                    language: getLanguage(r.path),
+                    content: r.content,
+                    size: r.content.length,
+                }));
+
+            // Generate and download
+            const text = generateOutput(fileEntries);
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${repoInfo.repo}_context.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            // Reset to upload view
+            setViewMode('upload');
+            setRepoTree([]);
+            setRepoInfo(null);
+        } catch (error) {
+            setGithubError((error as Error).message || 'Failed to download files');
+        } finally {
+            setIsDownloading(false);
+            setDownloadProgress(null);
+        }
+    };
 
     return (
         <section className="relative flex min-h-[85vh] flex-col items-center justify-center overflow-hidden bg-slate-950 px-6 pt-20 text-center">
@@ -140,102 +243,153 @@ export function Hero() {
                 The fastest way to convert local project folders into a single text file for ChatGPT, Claude, or Gemini.
             </p>
 
-            {/* Action Box / Drop Zone */}
-            <div
-                onClick={triggerFolderInput}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                className={`group relative flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed transition-all duration-300 ${isDragOver
-                    ? 'border-indigo-400 bg-indigo-500/10 scale-[1.02]'
-                    : 'border-white/10 bg-white/5 hover:border-indigo-500/50 hover:bg-white/10'
-                    } p-12 md:p-16`}
-            >
-                <input
-                    type="file"
-                    ref={folderInputRef}
-                    className="hidden"
-                    onChange={handleFileSelect}
-                    {...({ webkitdirectory: "", directory: "" } as any)}
+            {/* Show GitHub Tree if in that mode */}
+            {viewMode === 'github-tree' && repoInfo && (
+                <RepoFileTree
+                    tree={repoTree}
+                    repoName={`${repoInfo.owner}/${repoInfo.repo}`}
+                    onTreeChange={handleTreeChange}
+                    onDownload={handleGitHubDownload}
+                    onCancel={handleGitHubCancel}
+                    isDownloading={isDownloading}
+                    downloadProgress={downloadProgress}
                 />
+            )}
 
-                <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    onChange={handleFileSelect}
-                    accept=".zip"
-                    multiple
-                />
-
-                <div className={`mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br transition-all duration-500 ${step === 'complete' ? 'from-green-500 to-emerald-600 shadow-green-500/25 shadow-lg' :
-                    isDragOver ? 'from-indigo-500 to-purple-600 shadow-indigo-500/25 shadow-lg' : 'from-slate-800 to-slate-900 shadow-inner'
-                    }`}>
-                    {step === 'uploading' || step === 'converting' ? (
-                        <Loader2 className="h-10 w-10 text-white/80 animate-spin" />
-                    ) : step === 'complete' ? (
-                        <CheckCircle className="h-10 w-10 text-white" />
-                    ) : (
-                        <Upload className={`h-10 w-10 transition-colors ${isDragOver ? 'text-white' : 'text-slate-400 group-hover:text-indigo-400'}`} />
-                    )}
-                </div>
-
-                <h3 className="text-2xl font-semibold text-white">
-                    {step === 'uploading' ? 'Reading Files...' :
-                        step === 'converting' ? 'Converting to Text...' :
-                            step === 'complete' ? 'Ready for Download!' :
-                                'Drop Folder or ZIP Here'}
-                </h3>
-
-                {/* Progress Bar */}
-                {(step === 'uploading' || step === 'converting') && (
-                    <div className="mt-4 w-full max-w-xs rounded-full bg-white/10 h-2 overflow-hidden">
-                        <div
-                            className="h-full bg-indigo-500 transition-all duration-300"
-                            style={{ width: `${progress}%` }}
+            {/* Show Upload Zone or GitHub Input */}
+            {viewMode !== 'github-tree' && (
+                <>
+                    {/* Action Box / Drop Zone */}
+                    <div
+                        onClick={triggerFolderInput}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        className={`group relative flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed transition-all duration-300 ${isDragOver
+                            ? 'border-indigo-400 bg-indigo-500/10 scale-[1.02]'
+                            : 'border-white/10 bg-white/5 hover:border-indigo-500/50 hover:bg-white/10'
+                            } p-12 md:p-16`}
+                    >
+                        <input
+                            type="file"
+                            ref={folderInputRef}
+                            className="hidden"
+                            onChange={handleFileSelect}
+                            {...({ webkitdirectory: "", directory: "" } as any)}
                         />
-                    </div>
-                )}
 
-                {step === 'complete' ? (
-                    <div className="mt-6 flex flex-col items-center gap-4">
-                        <p className="text-slate-400">
-                            {`Successfully processed ${totalFiles} files.`}
-                        </p>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownload();
-                            }}
-                            className="rounded-full bg-green-600 px-6 py-3 font-semibold text-white shadow-lg shadow-green-500/20 transition hover:bg-green-500 hover:scale-105 active:scale-95"
-                        >
-                            Download .txt File
-                        </button>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setStep('idle');
-                                setProcessedGroups(null);
-                            }}
-                            className="text-sm text-slate-500 hover:text-white"
-                        >
-                            Convert Another
-                        </button>
-                    </div>
-                ) : (
-                    <>
-                        <p className="mt-2 text-slate-400">
-                            {step === 'idle' && (processedGroups
-                                ? `Successfully processed ${totalFiles} files across ${processedGroups.length} languages.`
-                                : 'Click to select a Folder, or drag a ZIP file.')}
-                            {(step === 'uploading' || step === 'converting') && 'Please wait...'}
-                        </p>
-                    </>
-                )}
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            onChange={handleFileSelect}
+                            accept=".zip"
+                            multiple
+                        />
 
-                {/* Glow effect on hover */}
-                <div className="absolute inset-0 -z-10 rounded-3xl bg-indigo-500/5 blur-xl transition-opacity opacity-0 group-hover:opacity-100" />
-            </div>
+                        <div className={`mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br transition-all duration-500 ${step === 'complete' ? 'from-green-500 to-emerald-600 shadow-green-500/25 shadow-lg' :
+                            isDragOver ? 'from-indigo-500 to-purple-600 shadow-indigo-500/25 shadow-lg' : 'from-slate-800 to-slate-900 shadow-inner'
+                            }`}>
+                            {step === 'uploading' || step === 'converting' ? (
+                                <Loader2 className="h-10 w-10 text-white/80 animate-spin" />
+                            ) : step === 'complete' ? (
+                                <CheckCircle className="h-10 w-10 text-white" />
+                            ) : (
+                                <Upload className={`h-10 w-10 transition-colors ${isDragOver ? 'text-white' : 'text-slate-400 group-hover:text-indigo-400'}`} />
+                            )}
+                        </div>
+
+                        <h3 className="text-2xl font-semibold text-white">
+                            {step === 'uploading' ? 'Reading Files...' :
+                                step === 'converting' ? 'Converting to Text...' :
+                                    step === 'complete' ? 'Ready for Download!' :
+                                        'Drop Folder or ZIP Here'}
+                        </h3>
+
+                        {/* Progress Bar */}
+                        {(step === 'uploading' || step === 'converting') && (
+                            <div className="mt-4 w-full max-w-xs rounded-full bg-white/10 h-2 overflow-hidden">
+                                <div
+                                    className="h-full bg-indigo-500 transition-all duration-300"
+                                    style={{ width: `${progress}%` }}
+                                />
+                            </div>
+                        )}
+
+                        {step === 'complete' ? (
+                            <div className="mt-6 flex flex-col items-center gap-4">
+                                <p className="text-slate-400">
+                                    {`Successfully processed ${totalFiles} files.`}
+                                </p>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDownload();
+                                    }}
+                                    className="rounded-full bg-green-600 px-6 py-3 font-semibold text-white shadow-lg shadow-green-500/20 transition hover:bg-green-500 hover:scale-105 active:scale-95"
+                                >
+                                    Download .txt File
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setStep('idle');
+                                        setProcessedGroups(null);
+                                    }}
+                                    className="text-sm text-slate-500 hover:text-white"
+                                >
+                                    Convert Another
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <p className="mt-2 text-slate-400">
+                                    {step === 'idle' && (processedGroups
+                                        ? `Successfully processed ${totalFiles} files across ${processedGroups.length} languages.`
+                                        : 'Click to select a Folder, or drag a ZIP file.')}
+                                    {(step === 'uploading' || step === 'converting') && 'Please wait...'}
+                                </p>
+                            </>
+                        )}
+
+                        {/* Glow effect on hover */}
+                        <div className="absolute inset-0 -z-10 rounded-3xl bg-indigo-500/5 blur-xl transition-opacity opacity-0 group-hover:opacity-100" />
+                    </div>
+
+                    {/* GitHub Option - Below the drop zone */}
+                    {viewMode === 'upload' && step === 'idle' && (
+                        <div className="mt-8 flex flex-col items-center gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-px w-16 bg-gradient-to-r from-transparent to-slate-700" />
+                                <span className="text-sm text-slate-500">or</span>
+                                <div className="h-px w-16 bg-gradient-to-l from-transparent to-slate-700" />
+                            </div>
+
+                            <button
+                                onClick={handleGitHubClick}
+                                className="flex items-center gap-2 px-5 py-3 rounded-xl
+                                           bg-slate-800/80 hover:bg-slate-700/80 
+                                           border border-white/10 hover:border-white/20
+                                           text-slate-300 hover:text-white
+                                           transition-all duration-200 hover:scale-[1.02]"
+                            >
+                                <Github className="h-5 w-5" />
+                                <span className="font-medium">Download from GitHub</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* GitHub Input */}
+                    {viewMode === 'github-input' && (
+                        <GitHubRepoInput
+                            onSubmit={handleGitHubSubmit}
+                            onCancel={handleGitHubCancel}
+                            isLoading={githubLoading}
+                            error={githubError}
+                        />
+                    )}
+                </>
+            )}
         </section>
     );
 }
