@@ -8,6 +8,7 @@ export function Hero() {
     const [isDragOver, setIsDragOver] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [processedGroups, setProcessedGroups] = useState<FileGroup[] | null>(null);
+    const folderInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -49,17 +50,15 @@ export function Hero() {
     const processFileList = async (list: FileList) => {
         setIsProcessing(true);
         try {
+            // Convert to array for easier usage if needed, though engine handles it
+            const files = Array.from(list);
+
             // Small delay to show UI state
-            const groups = await processFiles(list);
+            const groups = await processFiles(files);
             setProcessedGroups(groups);
 
             // For now, let's just log it to console as proof
             console.log("Processed Groups:", groups);
-
-            // We could also generate the full output immediately to test performance
-            // const allFiles = groups.flatMap(g => g.files);
-            // const text = generateOutput(allFiles);
-            // console.log("Final Output Length:", text.length);
 
         } catch (error) {
             console.error("Processing failed:", error);
@@ -68,7 +67,12 @@ export function Hero() {
         }
     };
 
-    const triggerInput = () => {
+    const triggerFolderInput = () => {
+        folderInputRef.current?.click();
+    };
+
+    const triggerFileInput = (e: React.MouseEvent) => {
+        e.stopPropagation();
         fileInputRef.current?.click();
     };
 
@@ -94,26 +98,34 @@ export function Hero() {
 
             {/* Action Box / Drop Zone */}
             <div
-                onClick={triggerInput}
+                onClick={triggerFolderInput}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 className={`group relative flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed transition-all duration-300 ${isDragOver
-                        ? 'border-indigo-400 bg-indigo-500/10 scale-[1.02]'
-                        : 'border-white/10 bg-white/5 hover:border-indigo-500/50 hover:bg-white/10'
+                    ? 'border-indigo-400 bg-indigo-500/10 scale-[1.02]'
+                    : 'border-white/10 bg-white/5 hover:border-indigo-500/50 hover:bg-white/10'
                     } p-12 md:p-16`}
             >
+                <input
+                    type="file"
+                    ref={folderInputRef}
+                    className="hidden"
+                    onChange={handleFileSelect}
+                    {...({ webkitdirectory: "", directory: "" } as any)}
+                />
+
                 <input
                     type="file"
                     ref={fileInputRef}
                     className="hidden"
                     onChange={handleFileSelect}
-                    {...({ webkitdirectory: "", directory: "" } as any)}
+                    accept=".zip"
                     multiple
                 />
 
                 <div className={`mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br transition-all duration-500 ${processedGroups ? 'from-green-500 to-emerald-600 shadow-green-500/25 shadow-lg' :
-                        isDragOver ? 'from-indigo-500 to-purple-600 shadow-indigo-500/25 shadow-lg' : 'from-slate-800 to-slate-900 shadow-inner'
+                    isDragOver ? 'from-indigo-500 to-purple-600 shadow-indigo-500/25 shadow-lg' : 'from-slate-800 to-slate-900 shadow-inner'
                     }`}>
                     {isProcessing ? (
                         <Loader2 className="h-10 w-10 text-white/80 animate-spin" />
@@ -125,14 +137,23 @@ export function Hero() {
                 </div>
 
                 <h3 className="text-2xl font-semibold text-white">
-                    {processedGroups ? 'Conversion Complete!' : 'Choose Folder or Drop Here'}
+                    {processedGroups ? 'Conversion Complete!' : 'Drop Folder or ZIP Here'}
                 </h3>
 
                 <p className="mt-2 text-slate-400">
                     {processedGroups
                         ? `Successfully processed ${totalFiles} files across ${processedGroups.length} languages.`
-                        : 'Supports all major programming languages'}
+                        : 'Click to select a Folder, or drag a ZIP file.'}
                 </p>
+
+                {!processedGroups && (
+                    <button
+                        onClick={triggerFileInput}
+                        className="mt-4 text-sm text-indigo-400 hover:text-indigo-300 underline underline-offset-4"
+                    >
+                        Select as ZIP file instead
+                    </button>
+                )}
 
                 {processedGroups && (
                     <div className="mt-6 rounded-full bg-white/10 px-4 py-1 text-sm font-medium text-indigo-300">

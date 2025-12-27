@@ -1,4 +1,6 @@
 
+import JSZip from 'jszip';
+
 export interface FileEntry {
   path: string;
   name: string;
@@ -44,7 +46,7 @@ const EXTENSION_MAP: Record<string, string> = {
   jsx: 'JavaScript',
   mjs: 'JavaScript',
   cjs: 'JavaScript',
-  
+
   // Web
   html: 'HTML',
   css: 'CSS',
@@ -53,7 +55,7 @@ const EXTENSION_MAP: Record<string, string> = {
   less: 'LESS',
   json: 'JSON',
   svg: 'SVG',
-  
+
   // Backend / Systems
   py: 'Python',
   rb: 'Ruby',
@@ -68,7 +70,7 @@ const EXTENSION_MAP: Record<string, string> = {
   cs: 'C#',
   swift: 'Swift',
   kt: 'Kotlin',
-  
+
   // Config / Infra
   yml: 'YAML',
   yaml: 'YAML',
@@ -78,7 +80,7 @@ const EXTENSION_MAP: Record<string, string> = {
   sh: 'Shell',
   bash: 'Shell',
   dockerfile: 'Dockerfile',
-  
+
   // Misc
   txt: 'Text',
 };
@@ -96,16 +98,16 @@ export const getLanguageFromFilename = (filename: string): string => {
 
 export const shouldIgnore = (path: string): boolean => {
   const parts = path.split('/');
-  
+
   // Check directories
   for (const part of parts) {
     if (IGNORED_DIRS.has(part)) return true;
   }
-  
+
   // Check filename (last part)
   const filename = parts[parts.length - 1];
   if (IGNORED_FILES.has(filename)) return true;
-  
+
   // Ignore dotfiles generally (except specific allowed ones if any, but default ignore)
   // if (filename.startsWith('.') && filename !== '.gitignore') return true; 
   // User specifically mentioned .env, keeping it simple with the set for now.
@@ -114,24 +116,38 @@ export const shouldIgnore = (path: string): boolean => {
 };
 
 export const processFiles = async (
-  fileList: FileList
+  input: FileList | File[]
 ): Promise<FileGroup[]> => {
   const groups: Record<string, FileEntry[]> = {};
-  
-  for (let i = 0; i < fileList.length; i++) {
-    const file = fileList[i];
+  const files: File[] = Array.isArray(input) ? input : Array.from(input);
+  const queue = [...files];
+
+  while (queue.length > 0) {
+    const file = queue.shift();
+    if (!file) continue;
+
     const path = file.webkitRelativePath || file.name;
-    
+
     if (shouldIgnore(path)) continue;
-    
+
+    // Check if zip
+    if (file.name.toLowerCase().endsWith('.zip')) {
+      try {
+        const unzippedFiles = await unzipFile(file);
+        queue.push(...unzippedFiles);
+      } catch (e) {
+        console.warn(`Failed to unzip ${file.name}`, e);
+      }
+      continue;
+    }
+
     // Skip binary files (simple heuristic: check extension or try to read)
-    // For now, we will try to read all non-ignored, but maybe skip known binary extensions
     if (isBinary(path)) continue;
 
     try {
       const content = await readFileContent(file);
       const language = getLanguageFromFilename(path);
-      
+
       const entry: FileEntry = {
         path,
         name: file.name,
@@ -139,7 +155,7 @@ export const processFiles = async (
         content,
         size: file.size,
       };
-      
+
       if (!groups[language]) {
         groups[language] = [];
       }
@@ -148,7 +164,7 @@ export const processFiles = async (
       console.warn(`Failed to read file ${path}`, e);
     }
   }
-  
+
   // Sort groups by file count desc
   return Object.entries(groups)
     .map(([language, files]) => ({
@@ -157,6 +173,34 @@ export const processFiles = async (
       count: files.length,
     }))
     .sort((a, b) => b.count - a.count);
+};
+
+const unzipFile = async (file: File): Promise<File[]> => {
+  const zip = new JSZip();
+  const loadedZip = await zip.loadAsync(file);
+  const files: File[] = [];
+
+  for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
+    if (zipEntry.dir) continue;
+
+    if (shouldIgnore(relativePath)) continue;
+
+    const blob = await zipEntry.async('blob');
+    // Create a File object from the blob, preserving the relative path in the name or property
+    // Note: browser File constructor doesn't natively support webkitRelativePath for manually created files easily,
+    // but we can store it in the 'name' or handle it in our logic.
+    // We will use relativePath as the name to preserve structure.
+    const extractedFile = new File([blob], relativePath, { type: blob.type });
+
+    // Mock webkitRelativePath behavior by using defineProperty (optional, but helpful if we rely on it downstream)
+    Object.defineProperty(extractedFile, 'webkitRelativePath', {
+      value: relativePath,
+    });
+
+    files.push(extractedFile);
+  }
+
+  return files;
 };
 
 const isBinary = (path: string): boolean => {
