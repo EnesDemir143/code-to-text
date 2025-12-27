@@ -15,27 +15,57 @@ CodeContext is a powerful, secure, and lightning-fast tool designed to help deve
 - **Instant Preview:** View the generated text before downloading or copying.
 - **Optimized for LLMs:** Formats the output with clear delimiters, making it easy for AI to understand your project structure.
 
+### 🆕 GitHub Integration (v1.1.0)
+
+- **Download from GitHub:** Import public repositories directly via URL
+- **Visual File Tree:** Browse repository structure in an interactive tree view
+- **Smart Selection:** Select parent folders to include all children, or pick individual files
+- **Bulk Actions:** Select All / Deselect All, Expand All / Collapse All
+- **Progress Tracking:** Real-time download progress indicator
+
 ## 🛠️ How It Works
 
-### 1. Upload Your Project
+### Option 1: Upload Your Project
+
+#### 1. Upload Your Project
 Select your project folder or drag and drop it into the upload area.
 
 ![Upload Step](public/images/step-upload-box.png)
 
-### 2. Configure & Filter
+#### 2. Configure & Filter
 Select specific files or folders you want to include. The tool automatically handles ignores for you.
 
 ![Selection Step](public/images/step-1.png)
 
-### 3. Processing
+#### 3. Processing
 Watch as your files are securely processed right in your browser.
 
 ![Processing Step](public/images/step-2.png)
 
-### 4. Generate & Export
+#### 4. Generate & Export
 Get a single consolidated text file ready for your favorite AI assistant.
 
 ![Result Step](public/images/step-result.png)
+
+---
+
+### Option 2: GitHub Integration
+
+#### 1. Click "Download from GitHub"
+Find the button below the upload area.
+
+#### 2. Enter Repository URL
+Paste a public GitHub repository URL (e.g., `https://github.com/user/repo`).
+
+#### 3. Browse & Select Files
+Explore the repository's file structure in a tree view. Click folders to expand, use checkboxes to select files.
+
+- ✅ Select a folder to include all its contents
+- ✅ Use "Select All" / "Deselect All" for bulk operations
+- ✅ Expand/Collapse folders for easier navigation
+
+#### 4. Download
+Click the download button to get your `.txt` file with all selected code.
 
 ## 💻 Getting Started
 
@@ -72,6 +102,10 @@ Get a single consolidated text file ready for your favorite AI assistant.
 
 4. Open [http://localhost:3000](http://localhost:3000) with your browser to use the application.
 
+## 📋 API Limits
+
+> **Note:** GitHub integration uses the public GitHub API which has a rate limit of 60 requests per hour for unauthenticated users. For larger repositories or frequent use, consider using the local folder upload option.
+
 ## 🤝 Contributing
 
 Contributions are welcome! Whether it's a bug fix, new feature, or documentation improvement, I'd love to hear from you.
@@ -91,3 +125,4 @@ For any inquiries, feedback, or collaboration opportunities, please reach out:
 ---
 
 Built with ❤️ using [Next.js](https://nextjs.org), [React](https://react.dev), and [Tailwind CSS](https://tailwindcss.com).
+
