@@ -10,6 +10,7 @@ import {
 } from '@/lib/github-api';
 import { GitHubRepoInput } from '@/components/github/GitHubRepoInput';
 import { RepoFileTree } from '@/components/github/RepoFileTree';
+import { LocalFileTree, LocalTreeItem, buildLocalTreeFromGroups } from '@/components/local/LocalFileTree';
 
 // Re-export getLanguageFromFilename from file-engine for GitHub files
 const getLanguage = (path: string): string => {
@@ -34,7 +35,7 @@ const getLanguage = (path: string): string => {
     return EXTENSION_MAP[ext] || 'Other';
 };
 
-type ViewMode = 'upload' | 'github-input' | 'github-tree';
+type ViewMode = 'upload' | 'github-input' | 'github-tree' | 'local-tree';
 
 export function Hero() {
     const [isDragOver, setIsDragOver] = useState(false);
@@ -52,6 +53,10 @@ export function Hero() {
     const [repoInfo, setRepoInfo] = useState<{ owner: string; repo: string; branch: string } | null>(null);
     const [downloadProgress, setDownloadProgress] = useState<{ current: number; total: number } | null>(null);
     const [isDownloading, setIsDownloading] = useState(false);
+
+    // Local file tree state
+    const [localTree, setLocalTree] = useState<LocalTreeItem[]>([]);
+    const [localFolderName, setLocalFolderName] = useState<string>('Uploaded Files');
 
     const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -85,6 +90,15 @@ export function Hero() {
         try {
             const files = Array.from(list);
 
+            // Determine folder name from the first file's path
+            const firstFile = files[0];
+            const firstPath = firstFile.webkitRelativePath || firstFile.name;
+            const folderName = firstPath.includes('/')
+                ? firstPath.split('/')[0]
+                : firstFile.name.endsWith('.zip')
+                    ? firstFile.name.replace('.zip', '')
+                    : 'Uploaded Files';
+
             const interval = setInterval(() => {
                 setProgress(prev => {
                     if (prev >= 90) {
@@ -111,7 +125,13 @@ export function Hero() {
                     if (convProgress >= 100) {
                         clearInterval(convInterval);
                         setProcessedGroups(groups);
-                        setStep('complete');
+
+                        // Build tree from groups and switch to tree view
+                        const tree = buildLocalTreeFromGroups(groups);
+                        setLocalTree(tree);
+                        setLocalFolderName(folderName);
+                        setStep('idle');
+                        setViewMode('local-tree');
                     }
                 }, 50);
             }, 500);
@@ -225,6 +245,35 @@ export function Hero() {
         }
     };
 
+    // Local file tree handlers
+    const handleLocalTreeChange = (newTree: LocalTreeItem[]) => {
+        setLocalTree(newTree);
+    };
+
+    const handleLocalDownload = (selectedFiles: FileEntry[]) => {
+        if (selectedFiles.length === 0) return;
+
+        const text = generateOutput(selectedFiles);
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${localFolderName.replace(/[^a-zA-Z0-9]/g, '_')}_context.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        // Reset to upload view
+        setViewMode('upload');
+        setLocalTree([]);
+        setProcessedGroups(null);
+    };
+
+    const handleLocalCancel = () => {
+        setViewMode('upload');
+        setLocalTree([]);
+        setProcessedGroups(null);
+    };
+
     return (
         <section className="relative flex min-h-[85vh] flex-col items-center justify-center overflow-hidden bg-slate-950 px-6 pt-20 text-center">
             {/* Background gradients */}
@@ -256,8 +305,19 @@ export function Hero() {
                 />
             )}
 
+            {/* Show Local File Tree if in that mode */}
+            {viewMode === 'local-tree' && localTree.length > 0 && (
+                <LocalFileTree
+                    tree={localTree}
+                    folderName={localFolderName}
+                    onTreeChange={handleLocalTreeChange}
+                    onDownload={handleLocalDownload}
+                    onCancel={handleLocalCancel}
+                />
+            )}
+
             {/* Show Upload Zone or GitHub Input */}
-            {viewMode !== 'github-tree' && (
+            {viewMode !== 'github-tree' && viewMode !== 'local-tree' && (
                 <>
                     {/* Action Box / Drop Zone */}
                     <div
