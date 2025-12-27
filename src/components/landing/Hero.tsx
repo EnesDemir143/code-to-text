@@ -343,11 +343,10 @@ export function Hero() {
                 <>
                     {/* Action Box / Drop Zone */}
                     <div
-                        onClick={triggerFolderInput}
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
-                        className={`group relative flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed transition-all duration-300 ${isDragOver
+                        className={`group relative flex w-full max-w-2xl flex-col items-center justify-center rounded-3xl border-2 border-dashed transition-all duration-300 ${isDragOver
                             ? 'border-indigo-400 bg-indigo-500/10 scale-[1.02]'
                             : 'border-white/10 bg-white/5 hover:border-indigo-500/50 hover:bg-white/10'
                             } p-12 md:p-16`}
@@ -365,7 +364,7 @@ export function Hero() {
                             ref={fileInputRef}
                             className="hidden"
                             onChange={handleFileSelect}
-                            accept=".zip"
+                            accept=".zip,.tar.gz,.tgz"
                             multiple
                         />
 
@@ -385,7 +384,7 @@ export function Hero() {
                             {step === 'uploading' ? 'Reading Files...' :
                                 step === 'converting' ? 'Converting to Text...' :
                                     step === 'complete' ? 'Ready for Download!' :
-                                        'Drop Folder or ZIP Here'}
+                                        'Drag & Drop Files'}
                         </h3>
 
                         {/* Progress Bar */}
@@ -424,14 +423,34 @@ export function Hero() {
                                 </button>
                             </div>
                         ) : (
-                            <>
-                                <p className="mt-2 text-slate-400">
-                                    {step === 'idle' && (processedGroups
-                                        ? `Successfully processed ${totalFiles} files across ${processedGroups.length} languages.`
-                                        : 'Click to select a Folder, or drag a ZIP file.')}
-                                    {(step === 'uploading' || step === 'converting') && 'Please wait...'}
-                                </p>
-                            </>
+                            <div className="mt-6 flex flex-col items-center gap-3">
+                                {step === 'idle' && (
+                                    <>
+                                        <p className="mb-2 text-slate-400">
+                                            Or select manually:
+                                        </p>
+                                        <div className="flex flex-wrap gap-3 justify-center">
+                                            <button
+                                                type="button"
+                                                onClick={triggerFolderInput}
+                                                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/20"
+                                            >
+                                                Select Folder
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium transition-all hover:scale-105 active:scale-95 border border-slate-700"
+                                            >
+                                                Select ZIP / Archive
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                                {(step === 'uploading' || step === 'converting') && (
+                                    <p className="text-slate-400">Please wait...</p>
+                                )}
+                            </div>
                         )}
 
                         {/* Glow effect on hover */}

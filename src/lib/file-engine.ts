@@ -277,7 +277,7 @@ const unzipFile = async (file: File): Promise<File[]> => {
 
 const isBinary = (path: string): boolean => {
   const ext = path.split('.').pop()?.toLowerCase();
-  const binaryExts = new Set(['png', 'jpg', 'jpeg', 'gif', 'ico', 'webp', 'pdf', 'zip', 'exe', 'dll', 'so', 'dylib', 'bin', 'lock', 'eot', 'ttf', 'woff', 'woff2', 'mp3', 'mp4', 'pyc', 'class']);
+  const binaryExts = new Set(['png', 'jpg', 'jpeg', 'gif', 'ico', 'webp', 'pdf', 'zip', 'tar', 'gz', '7z', 'rar', 'tgz', 'exe', 'dll', 'so', 'dylib', 'bin', 'lock', 'eot', 'ttf', 'woff', 'woff2', 'mp3', 'mp4', 'pyc', 'class']);
   return ext ? binaryExts.has(ext) : false;
 };
 

@@ -86,6 +86,17 @@ export default function Dashboard() {
                                 disabled={isPending}
                             />
                         </label>
+                        <label className={`flex items-center justify-center w-full px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl transition-all cursor-pointer border border-neutral-700 active:scale-95 text-sm font-medium gap-2 ${isPending ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                            <File className="w-4 h-4" />
+                            Select ZIP
+                            <input
+                                type="file"
+                                accept=".zip"
+                                className="hidden"
+                                onChange={handleDirectorySelect}
+                                disabled={isPending}
+                            />
+                        </label>
                         {totalFilesProcessed > 0 && (
                             <div className="text-center text-xs text-neutral-500">
                                 {totalFilesProcessed} files processed
@@ -99,8 +110,8 @@ export default function Dashboard() {
                                 key={group.language}
                                 onClick={() => toggleLanguage(group.language)}
                                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${selectedLanguages.has(group.language)
-                                        ? 'bg-neutral-800 text-neutral-200'
-                                        : 'text-neutral-500 hover:bg-neutral-800/50'
+                                    ? 'bg-neutral-800 text-neutral-200'
+                                    : 'text-neutral-500 hover:bg-neutral-800/50'
                                     }`}
                             >
                                 <div className="flex items-center gap-2">
