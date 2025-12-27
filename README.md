@@ -4,7 +4,7 @@
 
 Code to Text is a powerful, secure, and lightning-fast tool designed to help developers easily share their code context with Large Language Models (LLMs) like GPT-4, Claude, and Gemini.
 
-![Application Screenshot](/images/step-result.png)
+![Application Screenshot](public/images/step-result.png)
 
 ## 🚀 Features
 
@@ -19,22 +19,22 @@ Code to Text is a powerful, secure, and lightning-fast tool designed to help dev
 ### 1. Upload Your Project
 Select your project folder or drag and drop it into the upload area.
 
-![Upload Step](/images/step-upload-box.png)
+![Upload Step](public/images/step-upload-box.png)
 
 ### 2. Configure & Filter
 Select specific files or folders you want to include. The tool automatically handles ignores for you.
 
-![Selection Step](/images/step-1.png)
+![Selection Step](public/images/step-1.png)
 
 ### 3. Processing
 Watch as your files are securely processed right in your browser.
 
-![Processing Step](/images/step-2.png)
+![Processing Step](public/images/step-2.png)
 
 ### 4. Generate & Export
 Get a single consolidated text file ready for your favorite AI assistant.
 
-![Result Step](/images/step-result.png)
+![Result Step](public/images/step-result.png)
 
 ## 💻 Getting Started
 
