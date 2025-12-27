@@ -2,7 +2,7 @@
 
 import { useState, useRef, DragEvent, ChangeEvent, useEffect } from 'react';
 import { Upload, CheckCircle, Loader2, Github, Lock } from 'lucide-react';
-import { processFiles, FileGroup, generateOutput, FileEntry } from '@/lib/file-engine';
+import { processFiles, FileGroup, generateOutput, FileEntry, scanDroppedItems } from '@/lib/file-engine';
 import {
     GitHubTreeItem,
     fetchRepoTree,
@@ -85,6 +85,20 @@ export function Hero() {
         e.preventDefault();
         setIsDragOver(false);
 
+        // Try to use WebKit GetAsEntry for directory recursion
+        if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+            try {
+                const files = await scanDroppedItems(e.dataTransfer.items);
+                if (files.length > 0) {
+                    await processFileList(files);
+                    return;
+                }
+            } catch (err) {
+                console.warn('Failed to scan dropped items', err);
+            }
+        }
+
+        // Fallback to standard files
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             await processFileList(e.dataTransfer.files);
         }
@@ -96,12 +110,12 @@ export function Hero() {
         }
     };
 
-    const processFileList = async (list: FileList) => {
+    const processFileList = async (list: FileList | File[]) => {
         setStep('uploading');
         setProgress(0);
 
         try {
-            const files = Array.from(list);
+            const files = Array.isArray(list) ? list : Array.from(list);
 
             // Determine folder name from the first file's path
             const firstFile = files[0];
@@ -141,6 +155,13 @@ export function Hero() {
 
                         // Build tree from groups and switch to tree view
                         const tree = buildLocalTreeFromGroups(groups);
+
+                        if (tree.length === 0) {
+                            setStep('idle');
+                            alert("No processable files found in the selection.");
+                            return;
+                        }
+
                         setLocalTree(tree);
                         setLocalFolderName(folderName);
                         setStep('idle');
@@ -328,14 +349,26 @@ export function Hero() {
             )}
 
             {/* Show Local File Tree if in that mode */}
-            {viewMode === 'local-tree' && localTree.length > 0 && (
-                <LocalFileTree
-                    tree={localTree}
-                    folderName={localFolderName}
-                    onTreeChange={handleLocalTreeChange}
-                    onDownload={handleLocalDownload}
-                    onCancel={handleLocalCancel}
-                />
+            {viewMode === 'local-tree' && (
+                localTree.length > 0 ? (
+                    <LocalFileTree
+                        tree={localTree}
+                        folderName={localFolderName}
+                        onTreeChange={handleLocalTreeChange}
+                        onDownload={handleLocalDownload}
+                        onCancel={handleLocalCancel}
+                    />
+                ) : (
+                    <div className="flex flex-col items-center gap-4 py-12">
+                        <p className="text-xl text-slate-300">No processable files found.</p>
+                        <button
+                            onClick={handleLocalCancel}
+                            className="px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700"
+                        >
+                            Back to Upload
+                        </button>
+                    </div>
+                )
             )}
 
             {/* Show Upload Zone or GitHub Input */}

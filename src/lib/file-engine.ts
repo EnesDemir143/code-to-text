@@ -301,3 +301,53 @@ export const generateOutput = (selectedFiles: FileEntry[]): string => {
     )
     .join('\n\n');
 };
+
+// Drop Handler Helper
+export const scanDroppedItems = async (items: DataTransferItemList): Promise<File[]> => {
+  const files: File[] = [];
+  const queue: Promise<void>[] = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i].webkitGetAsEntry();
+    if (item) {
+      queue.push(traverseFileTree(item, '', files));
+    }
+  }
+
+  await Promise.all(queue);
+  return files;
+};
+
+const traverseFileTree = async (item: any, path: string, files: File[]): Promise<void> => {
+  if (item.isFile) {
+    return new Promise((resolve) => {
+      item.file((file: File) => {
+        const fullPath = path ? path + file.name : file.name;
+        // attach path property
+        Object.defineProperty(file, 'path', { value: fullPath });
+        Object.defineProperty(file, 'webkitRelativePath', { value: fullPath });
+        files.push(file);
+        resolve();
+      });
+    });
+  } else if (item.isDirectory) {
+    const dirReader = item.createReader();
+    const newPath = path + item.name + '/';
+
+    const readEntries = async (): Promise<any[]> => {
+      return new Promise((resolve, reject) => {
+        dirReader.readEntries((entries: any[]) => resolve(entries), (e: any) => reject(e));
+      });
+    };
+
+    try {
+      let entries = await readEntries();
+      while (entries.length > 0) {
+        await Promise.all(entries.map((entry) => traverseFileTree(entry, newPath, files)));
+        entries = await readEntries();
+      }
+    } catch (e) {
+      console.warn("Error reading directory", item.name, e);
+    }
+  }
+};
