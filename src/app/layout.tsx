@@ -22,6 +22,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { GitHubAuthProvider } from '@/contexts/GitHubAuthContext';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -32,9 +34,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
-        <ScrollToTop />
-        <SpeedInsights />
+        <GitHubAuthProvider>
+          {children}
+          <ScrollToTop />
+          <SpeedInsights />
+        </GitHubAuthProvider>
       </body>
     </html>
   );

@@ -72,11 +72,16 @@ export function parseGitHubUrl(url: string): ParsedGitHubUrl | null {
 
 /**
  * Fetches the repository tree structure from GitHub API
+ * @param owner - Repository owner
+ * @param repo - Repository name
+ * @param branch - Branch name (default: 'main')
+ * @param token - Optional GitHub access token for private repos
  */
 export async function fetchRepoTree(
     owner: string,
     repo: string,
-    branch: string = 'main'
+    branch: string = 'main',
+    token?: string
 ): Promise<GitHubTreeItem[]> {
     // Try the provided branch first, then fallback to 'master' if 'main' fails
     const branches = branch === 'main' ? ['main', 'master'] : [branch];
@@ -85,13 +90,20 @@ export async function fetchRepoTree(
 
     for (const branchName of branches) {
         try {
+            const headers: HeadersInit = {
+                'Accept': 'application/vnd.github.v3+json',
+            };
+
+            // User token varsa öncelikli kullan (private repo erişimi için)
+            // Yoksa env variable token'ı kullan (rate limit için)
+            const authToken = token || process.env.NEXT_PUBLIC_GITHUB_TOKEN;
+            if (authToken && authToken !== 'buraya_tokenini_yapistir') {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+
             const response = await fetch(
                 `https://api.github.com/repos/${owner}/${repo}/git/trees/${branchName}?recursive=1`,
-                {
-                    headers: {
-                        'Accept': 'application/vnd.github.v3+json',
-                    },
-                }
+                { headers }
             );
 
             if (!response.ok) {
@@ -181,14 +193,37 @@ function buildTreeHierarchy(flatTree: Array<{ path: string; type: string; sha: s
 }
 
 /**
- * Fetches file content from GitHub raw content URL
+ * Fetches file content from GitHub
+ * Uses raw.githubusercontent.com for public repos or API for private repos
+ * @param token - Optional GitHub access token for private repos
  */
 export async function fetchFileContent(
     owner: string,
     repo: string,
     path: string,
-    branch: string = 'main'
+    branch: string = 'main',
+    token?: string
 ): Promise<string> {
+    // For private repos, we need to use the API with authentication
+    if (token) {
+        const response = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/vnd.github.v3.raw',
+                },
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+        }
+
+        return response.text();
+    }
+
+    // For public repos, use raw.githubusercontent.com (faster, no rate limit)
     const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
 
     const response = await fetch(url);
@@ -202,13 +237,15 @@ export async function fetchFileContent(
 
 /**
  * Fetches multiple files content in parallel with rate limiting
+ * @param token - Optional GitHub access token for private repos
  */
 export async function fetchMultipleFiles(
     owner: string,
     repo: string,
     paths: string[],
     branch: string = 'main',
-    onProgress?: (current: number, total: number) => void
+    onProgress?: (current: number, total: number) => void,
+    token?: string
 ): Promise<Array<{ path: string; content: string; error?: string }>> {
     const results: Array<{ path: string; content: string; error?: string }> = [];
     const BATCH_SIZE = 10; // Fetch 10 files at a time to avoid overwhelming the browser
@@ -219,7 +256,7 @@ export async function fetchMultipleFiles(
         const batchResults = await Promise.all(
             batch.map(async (path) => {
                 try {
-                    const content = await fetchFileContent(owner, repo, path, branch);
+                    const content = await fetchFileContent(owner, repo, path, branch, token);
                     return { path, content };
                 } catch (error) {
                     return { path, content: '', error: (error as Error).message };
@@ -327,4 +364,101 @@ export function selectAllInTree(tree: GitHubTreeItem[], selected: boolean): GitH
 
     updateAll(newTree);
     return newTree;
+}
+
+// --- User & Repo Fetching ---
+
+export interface GitHubOrg {
+    login: string;
+    id: number;
+    avatar_url: string;
+    description: string | null;
+}
+
+export interface GitHubRepo {
+    id: number;
+    name: string;
+    full_name: string;
+    private: boolean;
+    html_url: string;
+    description: string | null;
+    updated_at: string;
+    default_branch: string;
+    owner: {
+        login: string;
+        avatar_url: string;
+    };
+    stargazers_count: number;
+    language: string | null;
+}
+
+/**
+ * Fetches the list of organizations the user belongs to
+ */
+export async function fetchUserOrgs(token: string): Promise<GitHubOrg[]> {
+    const response = await fetch('https://api.github.com/user/orgs', {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github.v3+json',
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch organizations: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+/**
+ * Fetches repositories for the authenticated user or a specific organization
+ * @param token - GitHub access token
+ * @param page - Page number (1-based)
+ * @param owner - Optional organization name. If null, fetches user's personal repos.
+ * @param search - Optional search query
+ */
+export async function fetchUserRepos(
+    token: string,
+    page: number = 1,
+    owner?: string,
+    search?: string
+): Promise<{ repos: GitHubRepo[]; hasMore: boolean }> {
+    const PER_PAGE = 30;
+    let url: string;
+
+    // Use search API for better filtering (and it supports 'user:name' or 'org:name')
+    // This allows us to search strictly within the context
+    if (search) {
+        const qualifier = owner ? `org:${owner}` : `user:@me`;
+        const query = encodeURIComponent(`${search} ${qualifier} sort:updated-desc`);
+        url = `https://api.github.com/search/repositories?q=${query}&page=${page}&per_page=${PER_PAGE}`;
+    } else {
+        // List API is faster/simpler when not searching
+        if (owner) {
+            url = `https://api.github.com/orgs/${owner}/repos?sort=updated&direction=desc&page=${page}&per_page=${PER_PAGE}`;
+        } else {
+            url = `https://api.github.com/user/repos?sort=updated&direction=desc&page=${page}&per_page=${PER_PAGE}&affiliation=owner,collaborator`;
+        }
+    }
+
+    const response = await fetch(url, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github.v3+json',
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch repositories: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    // search API returns { items: [] }, list API returns []
+    const repos = Array.isArray(data) ? data : data.items || [];
+
+    return {
+        repos,
+        hasMore: repos.length === PER_PAGE
+    };
 }
