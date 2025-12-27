@@ -1,3 +1,30 @@
+# 🚀 v1.2.0 - Interactive File Tree for Local Uploads
+
+Bu sürümde, yerel dosya/klasör yüklemelerinde de GitHub'daki gibi interaktif dosya ağacı görüntüleme özelliği eklendi.
+
+#### ✨ Yeni Özellikler
+
+- **Yerel Dosya Ağacı:** Dosya veya ZIP yüklendikten sonra interaktif dosya ağacı görüntüleme
+- **Seçimli İndirme:** Tüm dosyaları değil, sadece seçilen dosyaları indirme
+- **Akıllı Seçim Sistemi:**
+  - Parent seçildiğinde tüm alt dosyalar otomatik seçilir
+  - Tek tek dosya seçimi/kaldırması
+  - Select All / Deselect All butonları
+  - Expand All / Collapse All butonları
+- **Dosya Boyutu Gösterimi:** Her dosyanın boyutu tree'de görüntülenir
+- **Dil İkonları:** Kod dosyaları özel ikonlarla gösterilir
+
+#### 🔧 Teknik Detaylar
+
+- `LocalFileTree` component: GitHub'daki `RepoFileTree` ile aynı yapıda
+- Klasör hiyerarşisi otomatik oluşturulur
+- State yönetimi optimize edildi (useRef ile performans)
+
+#### 🔗 Live Demo
+https://context.enesdemir.me
+
+---
+
 # 🚀 v1.1.0 - GitHub Integration
 
 Bu sürümde, kullanıcıların doğrudan GitHub'dan public repoları indirip text dosyasına dönüştürebilmesi için yeni özellikler eklendi.
