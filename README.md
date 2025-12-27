@@ -1,16 +1,19 @@
-# Code to Text Converter
+# CodeContext
 
 **Convert your entire codebase into a single text file for LLMs.**
 
-Code to Text is a powerful, secure, and lightning-fast tool designed to help developers easily share their code context with Large Language Models (LLMs) like GPT-4, Claude, and Gemini.
+[**Live Demo: context.enesdemir.me**](https://context.enesdemir.me)
+
+CodeContext is a powerful, secure, and lightning-fast tool designed to help developers easily share their code context with Large Language Models (LLMs) like GPT-4, Claude, and Gemini.
 
 ## 🚀 Features
 
-- **100% Client-Side Processing**: Your code never leaves your browser. All file reading and conversion happen locally for maximum security.
-- **Drag & Drop Interface**: Simply drag your project folder to get started.
-- **Smart Filtering**: Automatically ignores `node_modules`, `.git`, lockfiles, and other binary files. Customize which files or directories to exclude.
-- **Instant Preview**: View the generated text before downloading or copying.
-- **Optimized for LLMs**: Formats the output with clear delimiters, making it easy for AI to understand your project structure.
+- **Client-Side Processing:** Files are processed in the browser, zero server uploads.
+- **Smart Filtering:** Automatically ignores `node_modules`, `.git`, `.env`, and binary files.
+- **Language Detection:** Groups files by extension (e.g., Python, TypeScript).
+- **Dark Mode UI:** Designed with a clean, developer-focused interface.
+- **Instant Preview:** View the generated text before downloading or copying.
+- **Optimized for LLMs:** Formats the output with clear delimiters, making it easy for AI to understand your project structure.
 
 ## 🛠️ How It Works
 

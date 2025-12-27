@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Context Converter for LLMs",
+  title: "CodeContext",
   description: "Turn your codebase into LLM context",
 };
 
