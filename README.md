@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Code to Text Converter
 
-## Getting Started
+**Convert your entire codebase into a single text file for LLMs.**
 
-First, run the development server:
+Code to Text is a powerful, secure, and lightning-fast tool designed to help developers easily share their code context with Large Language Models (LLMs) like GPT-4, Claude, and Gemini.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+![Application Screenshot](/images/step-result.png)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **100% Client-Side Processing**: Your code never leaves your browser. All file reading and conversion happen locally for maximum security.
+- **Drag & Drop Interface**: Simply drag your project folder to get started.
+- **Smart Filtering**: Automatically ignores `node_modules`, `.git`, lockfiles, and other binary files. Customize which files or directories to exclude.
+- **Instant Preview**: View the generated text before downloading or copying.
+- **Optimized for LLMs**: Formats the output with clear delimiters, making it easy for AI to understand your project structure.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛠️ How It Works
 
-## Learn More
+### 1. Upload Your Project
+Select your project folder or drag and drop it into the upload area.
 
-To learn more about Next.js, take a look at the following resources:
+![Upload Step](/images/step-upload-box.png)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 2. Configure & Filter
+Select specific files or folders you want to include. The tool automatically handles ignores for you.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+![Selection Step](/images/step-1.png)
 
-## Deploy on Vercel
+### 3. Processing
+Watch as your files are securely processed right in your browser.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+![Processing Step](/images/step-2.png)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 4. Generate & Export
+Get a single consolidated text file ready for your favorite AI assistant.
+
+![Result Step](/images/step-result.png)
+
+## 💻 Getting Started
+
+### Prerequisites
+
+- Node.js 18+ installed on your machine.
+- npm, yarn, or pnpm.
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/EnesDemir143/code-to-text.git
+   cd code-to-text
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   # or
+   yarn install
+   # or
+   pnpm install
+   ```
+
+3. Run the development server:
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   # or
+   pnpm dev
+   ```
+
+4. Open [http://localhost:3000](http://localhost:3000) with your browser to use the application.
+
+## 🤝 Contributing
+
+Contributions are welcome! Whether it's a bug fix, new feature, or documentation improvement, I'd love to hear from you.
+
+1. Fork the project.
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4. Push to the branch (`git push origin feature/AmazingFeature`).
+5. Open a Pull Request.
+
+### Contact
+
+For any inquiries, feedback, or collaboration opportunities, please reach out:
+
+📧 **Email**: [enesdemirdev@gmail.com](mailto:enesdemirdev@gmail.com)
+
+---
+
+Built with ❤️ using [Next.js](https://nextjs.org), [React](https://react.dev), and [Tailwind CSS](https://tailwindcss.com).
