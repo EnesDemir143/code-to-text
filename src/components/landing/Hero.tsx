@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, DragEvent, ChangeEvent } from 'react';
-import { Upload, CheckCircle, Loader2, Github } from 'lucide-react';
+import { Upload, CheckCircle, Loader2, Github, Lock } from 'lucide-react';
 import { processFiles, FileGroup, generateOutput, FileEntry } from '@/lib/file-engine';
 import {
     GitHubTreeItem,
@@ -11,6 +11,9 @@ import {
 import { GitHubRepoInput } from '@/components/github/GitHubRepoInput';
 import { RepoFileTree } from '@/components/github/RepoFileTree';
 import { LocalFileTree, LocalTreeItem, buildLocalTreeFromGroups } from '@/components/local/LocalFileTree';
+import { GitHubAuthButton } from '@/components/GitHubAuthButton';
+import { useGitHubAuth } from '@/hooks/useGitHubAuth';
+import { GitHubRepoPicker } from '@/components/github/GitHubRepoPicker';
 
 // Re-export getLanguageFromFilename from file-engine for GitHub files
 const getLanguage = (path: string): string => {
@@ -35,7 +38,7 @@ const getLanguage = (path: string): string => {
     return EXTENSION_MAP[ext] || 'Other';
 };
 
-type ViewMode = 'upload' | 'github-input' | 'github-tree' | 'local-tree';
+type ViewMode = 'upload' | 'github-input' | 'github-tree' | 'local-tree' | 'github-picker';
 
 export function Hero() {
     const [isDragOver, setIsDragOver] = useState(false);
@@ -57,6 +60,9 @@ export function Hero() {
     // Local file tree state
     const [localTree, setLocalTree] = useState<LocalTreeItem[]>([]);
     const [localFolderName, setLocalFolderName] = useState<string>('Uploaded Files');
+
+    // GitHub Auth
+    const { isAuthenticated, token, isLoading: authLoading } = useGitHubAuth();
 
     const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -163,10 +169,16 @@ export function Hero() {
 
     const totalFiles = processedGroups?.reduce((acc, g) => acc + g.count, 0) || 0;
 
+
     // GitHub handlers
     const handleGitHubClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        setViewMode('github-input');
+        if (isAuthenticated) {
+            setViewMode('github-picker');
+        } else {
+            // If not authenticated, default to manual input (or could force auth, but manual input is safe fallback)
+            setViewMode('github-input');
+        }
         setGithubError(null);
     };
 
@@ -175,7 +187,7 @@ export function Hero() {
         setGithubError(null);
 
         try {
-            const tree = await fetchRepoTree(owner, repo, branch || 'main');
+            const tree = await fetchRepoTree(owner, repo, branch || 'main', token || undefined);
             setRepoTree(tree);
             setRepoInfo({ owner, repo, branch: branch || 'main' });
             setViewMode('github-tree');
@@ -193,6 +205,8 @@ export function Hero() {
         setRepoInfo(null);
     };
 
+
+
     const handleTreeChange = (newTree: GitHubTreeItem[]) => {
         setRepoTree(newTree);
     };
@@ -209,7 +223,8 @@ export function Hero() {
                 repoInfo.repo,
                 selectedPaths,
                 repoInfo.branch,
-                (current, total) => setDownloadProgress({ current, total })
+                (current, total) => setDownloadProgress({ current, total }),
+                token || undefined
             );
 
             // Convert to FileEntry format
@@ -425,6 +440,9 @@ export function Hero() {
                                 <div className="h-px w-16 bg-gradient-to-l from-transparent to-slate-700" />
                             </div>
 
+                            {/* GitHub Auth Button */}
+                            <GitHubAuthButton className="mb-2" />
+
                             <button
                                 onClick={handleGitHubClick}
                                 className="flex items-center gap-2 px-5 py-3 rounded-xl
@@ -435,7 +453,20 @@ export function Hero() {
                             >
                                 <Github className="h-5 w-5" />
                                 <span className="font-medium">Download from GitHub</span>
+                                {!isAuthenticated && !authLoading && (
+                                    <span className="flex items-center gap-1 text-xs text-amber-400 ml-2">
+                                        <Lock className="h-3 w-3" />
+                                        Public only
+                                    </span>
+                                )}
                             </button>
+
+                            {isAuthenticated && (
+                                <p className="text-xs text-emerald-400 flex items-center gap-1">
+                                    <CheckCircle className="h-3 w-3" />
+                                    Private repos enabled
+                                </p>
+                            )}
                         </div>
                     )}
 
@@ -446,6 +477,14 @@ export function Hero() {
                             onCancel={handleGitHubCancel}
                             isLoading={githubLoading}
                             error={githubError}
+                        />
+                    )}
+
+                    {viewMode === 'github-picker' && (
+                        <GitHubRepoPicker
+                            onRepoSelect={handleGitHubSubmit}
+                            onCancel={handleGitHubCancel}
+                            onSwitchToUrlMode={() => setViewMode('github-input')}
                         />
                     )}
                 </>
