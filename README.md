@@ -4,8 +4,6 @@
 
 Code to Text is a powerful, secure, and lightning-fast tool designed to help developers easily share their code context with Large Language Models (LLMs) like GPT-4, Claude, and Gemini.
 
-![Application Screenshot](public/images/step-result.png)
-
 ## 🚀 Features
 
 - **100% Client-Side Processing**: Your code never leaves your browser. All file reading and conversion happen locally for maximum security.
